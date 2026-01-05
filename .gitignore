@@ -12,3 +12,5 @@ dist/
 
 # Fable
 .fable/
+*.fs.js
+*.map

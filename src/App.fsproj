@@ -5,6 +5,8 @@
   <ItemGroup>
     <Compile Include="Domain/Types.fs" />
     <Compile Include="Domain/Rules.fs" />
+    <Compile Include="Audio/AudioEngine.fs" />
+    <Compile Include="UI/Components.fs" />
     <Compile Include="UI/Main.fs" />
   </ItemGroup>
   <ItemGroup>

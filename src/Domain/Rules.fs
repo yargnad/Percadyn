@@ -1,6 +1,5 @@
 namespace Percadyn.Domain
 
-open Types
 
 module Rules =
 
@@ -72,8 +71,8 @@ module Rules =
 
     /// Splits the grid into 2x2 blocks based on the time step (phase).
     /// If step is even, offset is 0. If odd, offset is 1.
-    /// Returns a 2D array of Blocks.
-    let partition (grid: Grid) (step: int) : Block[,] =
+    /// Returns a jagged array of Blocks.
+    let partition (grid: Grid) (step: int) : Block[][] =
         let rows = grid.Length
         let cols = if rows > 0 then grid.[0].Length else 0
         
@@ -87,21 +86,23 @@ module Rules =
         let blockRows = (rows - offset) / 2
         let blockCols = (cols - offset) / 2
         
-        Array2D.init blockRows blockCols (fun r c ->
-            let rStart = (r * 2) + offset
-            let cStart = (c * 2) + offset
-            {
-                TopLeft = grid.[rStart].[cStart]
-                TopRight = grid.[rStart].[cStart + 1]
-                BottomLeft = grid.[rStart + 1].[cStart]
-                BottomRight = grid.[rStart + 1].[cStart + 1]
-            }
+        Array.init blockRows (fun r ->
+            Array.init blockCols (fun c ->
+                let rStart = (r * 2) + offset
+                let cStart = (c * 2) + offset
+                {
+                    TopLeft = grid.[rStart].[cStart]
+                    TopRight = grid.[rStart].[cStart + 1]
+                    BottomLeft = grid.[rStart + 1].[cStart]
+                    BottomRight = grid.[rStart + 1].[cStart + 1]
+                }
+            )
         )
 
     /// Reassembles the blocks back into the grid.
     /// Needs the original grid to preserve the "edges" that weren't part of a block
     /// during the offset phase.
-    let reassemble (blocks: Block[,]) (step: int) (currentGrid: Grid) : Grid =
+    let reassemble (blocks: Block[][]) (step: int) (currentGrid: Grid) : Grid =
         let rows = currentGrid.Length
         let cols = if rows > 0 then currentGrid.[0].Length else 0
         let offset = if step % 2 = 0 then 0 else 1
@@ -111,12 +112,12 @@ module Rules =
         // In F#, array copy:
         let newGrid = Array.init rows (fun r -> Array.copy currentGrid.[r])
 
-        let blockRows = Array2D.length1 blocks
-        let blockCols = Array2D.length2 blocks
+        let blockRows = blocks.Length
+        let blockCols = if blockRows > 0 then blocks.[0].Length else 0
 
         for r in 0 .. blockRows - 1 do
             for c in 0 .. blockCols - 1 do
-                let block = blocks.[r, c]
+                let block = blocks.[r].[c]
                 let rStart = (r * 2) + offset
                 let cStart = (c * 2) + offset
                 
