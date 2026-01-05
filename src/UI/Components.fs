@@ -26,6 +26,7 @@ module Components =
                         match props.Grid.[r].[c] with
                         | Alive ->
                             Html.rect [
+                                prop.key (sprintf "%d-%d" r c)
                                 prop.x (c * props.CellSize)
                                 prop.y (r * props.CellSize)
                                 prop.width props.CellSize

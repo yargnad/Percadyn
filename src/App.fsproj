@@ -5,6 +5,7 @@
   <ItemGroup>
     <Compile Include="Domain/Types.fs" />
     <Compile Include="Domain/Rules.fs" />
+    <Compile Include="Midi/MidiEngine.fs" />
     <Compile Include="Audio/AudioEngine.fs" />
     <Compile Include="UI/Components.fs" />
     <Compile Include="UI/Main.fs" />
@@ -12,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="4.3.0" />
     <PackageReference Include="Fable.Browser.Dom" Version="2.16.0" />
+    <PackageReference Include="Fable.Promise" Version="3.2.0" />
     <PackageReference Include="Feliz" Version="2.7.0" />
   </ItemGroup>
 </Project>

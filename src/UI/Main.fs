@@ -5,16 +5,23 @@ open Fable.Core
 open Percadyn.Domain
 open Percadyn.UI.Components
 
+open Percadyn.Midi
+
 type State =
     { Grid: Grid
       IsRunning: bool
-      Step: int }
+      Step: int
+      MidiDevices: MidiEngine.MidiOutput list
+      SelectedMidiOutput: string option }
 
 type Msg =
     | Tick
     | ToggleRunning
     | Clear
     | Randomize
+    | MidiAccessGranted of MidiEngine.MidiOutput list
+    | MidiAccessFailed of string
+    | SelectMidiOutput of string
 
 let init () =
     // Initialize a 32x32 grid
@@ -31,7 +38,9 @@ let init () =
 
     { Grid = grid
       IsRunning = false
-      Step = 0 }
+      Step = 0 
+      MidiDevices = []
+      SelectedMidiOutput = None }
 
 // Reducer returns just the new state (no Cmd)
 let update (state: State) (msg: Msg) =
@@ -63,9 +72,24 @@ let update (state: State) (msg: Msg) =
             // Scan column and play notes
             for r in 0 .. nextGrid.Length - 1 do
                 if nextGrid.[r].[activeCol] = Alive then
+                    // Audio Engine (Web Audio)
                     // Map row to pitch (invert so 0 is high or low depending on preference)
-                    // Here: 0 = Low pitch
                     Percadyn.Audio.AudioEngine.playNote r 0.1
+                    
+                    // MIDI Engine
+                    // Simple Chromatic mapping for now: Middle C (60) + Row Index (reversed?)
+                    // Let's assume Middle C is roughly row 16.
+                    let midiNote = 60 + (16 - r)
+                    // Channel 1 (0)
+                    MidiEngine.sendNoteOn state.SelectedMidiOutput 0 midiNote 100
+                    
+                    // Note Off after 100ms (rough hack, ideally scheduling)
+                    // In a real scheduler we'd schedule the NoteOff. 
+                    // For setInterval MVP, we utilize the fire-and-forget.
+                    // This creates short blips.
+                    // Better: use setTimeout? No, blocking.
+                    ignore (Fable.Core.JS.setTimeout (fun () -> 
+                        MidiEngine.sendNoteOff state.SelectedMidiOutput 0 midiNote) 100)
 
             { state with 
                 Grid = nextGrid
@@ -85,6 +109,16 @@ let update (state: State) (msg: Msg) =
             Array.init cols (fun _ -> if rnd.NextDouble() > 0.7 then Alive else Dead))
         { state with Grid = newGrid; Step = 0 }
 
+    | MidiAccessGranted devices ->
+        { state with MidiDevices = devices; SelectedMidiOutput = devices |> List.tryHead |> Option.map (fun d -> d.Id) }
+
+    | MidiAccessFailed error ->
+        JS.console.error("MIDI Init Failed: " + error)
+        state
+
+    | SelectMidiOutput id ->
+        { state with SelectedMidiOutput = Some id }
+
 [<ReactComponent>]
 let App() =
     let state, dispatch = React.useReducer(update, init())
@@ -97,6 +131,16 @@ let App() =
         else
             React.createDisposable(fun () -> ())
     , [| box state.IsRunning |])
+
+    // MIDI Init Effect
+    React.useEffect(fun () ->
+        promise {
+            let! result = MidiEngine.init()
+            match result with
+            | Ok devices -> dispatch (MidiAccessGranted devices)
+            | Error err -> dispatch (MidiAccessFailed err)
+        } |> ignore
+    , [| |])
 
     Html.div [
         prop.className "min-h-screen bg-black text-white p-8 flex flex-col items-center font-mono"
@@ -138,6 +182,30 @@ let App() =
                     ]
                 ]
             ]
+            
+            // MIDI Settings
+            if not state.MidiDevices.IsEmpty then
+                Html.div [
+                    prop.className "mt-4 flex flex-col items-center gap-2"
+                    prop.children [
+                        Html.label [
+                            prop.className "text-gray-400 text-sm"
+                            prop.text "MIDI Output"
+                        ]
+                        Html.select [
+                            prop.className "bg-gray-800 text-white px-4 py-1 rounded border border-gray-600"
+                            prop.value (defaultArg state.SelectedMidiOutput "")
+                            prop.onChange (fun (value: string) -> dispatch (SelectMidiOutput value))
+                            prop.children [
+                                for device in state.MidiDevices do
+                                    Html.option [
+                                        prop.value device.Id
+                                        prop.text device.Name
+                                    ]
+                            ]
+                        ]
+                    ]
+                ]
         ]
     ]
 
